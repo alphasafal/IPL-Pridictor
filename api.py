@@ -92,3 +92,4 @@ def predict(team1: str, team2: str, venue: str,
 @app.get("/teams")
 def get_teams():
     return {"teams": list(le_team.classes_)}
+#nice code
