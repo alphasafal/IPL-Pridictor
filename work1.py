@@ -6,10 +6,11 @@ from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
+# Load data SORTED
 all_matches = []
 folder = "ipl_json"
 
-for file in os.listdir(folder):
+for file in sorted(os.listdir(folder)):
     if file.endswith(".json"):
         with open(f"{folder}/{file}") as f:
             all_matches.append(json.load(f))
@@ -35,15 +36,16 @@ df = pd.DataFrame(rows)
 df = df.dropna(subset=['winner'])
 df['date'] = pd.to_datetime(df['date'])
 df = df.sort_values('date').reset_index(drop=True)
+df = df.drop_duplicates().reset_index(drop=True)
 
 print(f"Total matches: {len(df)}")
+print(f"Date range: {df['date'].min()} → {df['date'].max()}")
 
 win_count = {}
 match_count = {}
 h2h = {}
 venue_stats = {}
 recent_form = {}
-season_form = {}
 
 team1_winrate = []
 team2_winrate = []
@@ -64,21 +66,25 @@ for idx, row in df.iterrows():
     winner = row['winner']
     venue = row['venue']
 
+    # Overall win rates
     t1_wr = win_count.get(t1, 0) / max(match_count.get(t1, 1), 1)
     t2_wr = win_count.get(t2, 0) / max(match_count.get(t2, 1), 1)
     team1_winrate.append(t1_wr)
     team2_winrate.append(t2_wr)
     win_rate_diff.append(t1_wr - t2_wr)
 
+    # Head to head
     key = tuple(sorted([t1, t2]))
     h2h_data = h2h.get(key, {'t1_wins': 0, 'total': 1})
     h2h_t1 = h2h_data['t1_wins'] / max(h2h_data['total'], 1)
     h2h_team1_rate.append(h2h_t1)
 
+    # Venue win rate for team1
     vkey = (venue, t1)
     vdata = venue_stats.get(vkey, {'wins': 0, 'total': 1})
     venue_team1_rate.append(vdata['wins'] / max(vdata['total'], 1))
 
+    # Venue experience
     vkey_t1 = (venue, t1)
     vkey_t2 = (venue, t2)
     ve_t1 = venue_stats.get(vkey_t1, {'total': 0})['total']
@@ -86,6 +92,7 @@ for idx, row in df.iterrows():
     venue_experience_t1.append(ve_t1)
     venue_experience_t2.append(ve_t2)
 
+    # Recent form
     t1_form = recent_form.get(t1, [])
     t2_form = recent_form.get(t2, [])
 
@@ -100,7 +107,7 @@ for idx, row in df.iterrows():
     team2_last3.append(t2_l3)
     form_diff.append(t1_l5 - t2_l5)
 
-    # Update
+    # Update stats AFTER recording
     win_count[winner] = win_count.get(winner, 0) + 1
     match_count[t1] = match_count.get(t1, 0) + 1
     match_count[t2] = match_count.get(t2, 0) + 1
@@ -123,6 +130,7 @@ for idx, row in df.iterrows():
     recent_form[t1].append(1 if winner == t1 else 0)
     recent_form[t2].append(1 if winner == t2 else 0)
 
+# Add features
 df['team1_winrate'] = team1_winrate
 df['team2_winrate'] = team2_winrate
 df['h2h_team1'] = h2h_team1_rate
@@ -169,7 +177,7 @@ model = XGBClassifier(
 model.fit(X_train, y_train)
 
 acc = accuracy_score(y_test, model.predict(X_test))
-print(f"V3 XGBoost Accuracy: {acc*100:.1f}%")
+print(f"\nV3 XGBoost Accuracy: {acc*100:.1f}%")
 
 features = X.columns
 importances = model.feature_importances_
