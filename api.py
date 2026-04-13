@@ -11,7 +11,7 @@ app = FastAPI()
 
 # Train model on startup
 all_matches = []
-folder = "/Users/safalgupta/Downloads/ipl_json"
+folder = "ipl_json"
 
 for file in os.listdir(folder):
     if file.endswith(".json"):
